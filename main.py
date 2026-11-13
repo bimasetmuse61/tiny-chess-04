@@ -21,16 +21,16 @@ RD=[-16,-1,1,16]
 KD=BD+RD
 DL=[0,0,ND,BD,RD,KD,KD]
 CM={0:13,7:14,4:12,112:7,119:11,116:3}
-INF=10**7;BDGT=6e4;TT={};NDN=0
+INF=10**7;BDGT=9e4;TT={};NDN=0
 def att(B,sq,by):
  pc=PC[by]
- for ds,t,r in ((ND,1,0),(KD,5,0),(BD,2,1),(RD,3,1),((-15*by,-17*by),0,0)):
+ for ds,t,r in ((ND,1,0),(KD,5,0),(BD,2,1),(RD,3,1),(KD,4,1),((-15*by,-17*by),0,0)):
   for d in ds:
    s=sq+d
    while not s&0x88:
     p=B[s]
     if p!=".":
-     if p==pc[t] or (r and p==pc[4]):return 1
+     if p==pc[t]:return 1
      break
     if not r:break
     s+=d
@@ -64,7 +64,8 @@ def gen(st,cap=False):
     to=sq+d
     while not to&0x88:
      q=B[to]
-     if q=="." and not cap:ap(sq|to<<7)
+     if q==".":
+      if not cap:ap(sq|to<<7)
      else:
       if q not in pc:ap(sq|to<<7)
       break
@@ -90,7 +91,7 @@ def set_fen(fen):
   elif ch.isdigit():sq+=int(ch)
   else:
    B[sq]=ch;S+=VC[ch][sq];sq+=1
- CR=sum({"K":1,"Q":2,"k":4,"q":8}.get(ch,0) for ch in p[2])
+ CR=sum(1<<"KQkq".index(ch) for ch in p[2] if ch in "KQkq")
  return "".join(B),1 if p[1]>"b" else -1,CR,S
 def neg(st,d,a,b):
  global NDN
@@ -99,7 +100,6 @@ def neg(st,d,a,b):
  B,stm,CR,S=st
  kpc="Kk"[stm<0]
  inch=att(B,B.find(kpc),-stm)
- if d<-9 or (inch and d<=-2):return S*stm
  best=-INF
  if d<=0 and not inch:
   best=S*stm
@@ -107,18 +107,20 @@ def neg(st,d,a,b):
   a=max(a,best)
  tm=0
  if d>0:
-  if inch:d+=1
   e=TT.get(st[:3])
   if e:
    tm=e[2]
    if e[0]>=d:return e[1]
  ms=gen(st,d<=0 and not inch)
- ms.sort(key=lambda m:(m==tm,MV[abs(C2T[B[(m>>7)&127]])] if B[(m>>7)&127]!="." else 0),reverse=True)
+ ms.sort(key=lambda m:(m==tm,MV[abs(C2T[v])] if (v:=B[(m>>7)&127])!="." else 0),reverse=True)
  bm=0
  for m in ms:
   cs=apply(st,m)
   if att(cs[0],cs[0].find(kpc),-stm):continue
-  v=-neg(cs,d-1,-b,-a)
+  if bm:
+   v=-neg(cs,d-1,-a-1,-a)
+   if a<v<b:v=-neg(cs,d-1,-b,-a)
+  else:v=-neg(cs,d-1,-b,-a)
   if v>best:best=v;bm=m
   a=max(a,v)
   if a>=b:break
@@ -127,15 +129,14 @@ def neg(st,d,a,b):
  return best
 def root(st):
  global NDN
- NDN=0;d=1;bm=0
- while d<99:
+ NDN=0;bm=0
+ for d in range(1,99):
   try:neg(st,d,-INF,INF)
   except Exception:break
   bm=TT.get(st[:3],(0,0,bm))[2]
-  d+=1
  return bm
 def uci(m):
- return "abcdefgh"[m&7]+str((m>>4&7)+1)+"abcdefgh"[m>>7&7]+str((m>>11&7)+1)+("nbrq"[(m>>14)-2] if m>>14 else "")
+ return chr(97+(m&7))+str((m>>4&7)+1)+chr(97+(m>>7&7))+str((m>>11&7)+1)+("nbrq"[(m>>14)-2] if m>>14 else "")
 def post(p,b):
  q=R.Request(E+p,data=json.dumps(b).encode())
  return json.loads(R.urlopen(q).read())
